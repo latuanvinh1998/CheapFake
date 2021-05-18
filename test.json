@@ -1,0 +1,12 @@
+{"img_local_path": "public_test_mmsys/1.jpg", 
+"caption1": "Supporters of Tanzania's ruling Chama Cha Mapinduzi party come out on Friday to celebrate their candidate's victory in the disputed Zanzibari presidential election", 
+"caption2": "A person sits on a truck as supporters of the ruling Chama Cha Mapinduzi (Revolutionary Party) celebrate the victory of their candidate in the Zanzibar Presidential election on the outskirts of Stone Town, on October 30, 2020.", 
+"context_label": 0, 
+"article_url": "https://www.bbc.com/news/world-africa-54828934", 
+"maskrcnn_bboxes": [[389.6280517578125, 8.949727058410645, 609.6119995117188, 392.25555419921875], [890.519775390625, 439.1005554199219, 975.5325317382812, 547.5588989257812], [0.0, 453.0171813964844, 137.16851806640625, 547.4357299804688], [161.58926391601562, 431.6105651855469, 809.5007934570312, 542.5567016601562], [792.5897216796875, 479.9522705078125, 848.8662719726562, 546.4912719726562], [723.2586059570312, 434.73065185546875, 756.88818359375, 478.6017150878906], [234.8422088623047, 229.90127563476562, 717.4603881835938, 436.8536376953125], [180.153564453125, 437.98065185546875, 219.98043823242188, 488.01953125], [329.10504150390625, 230.89695739746094, 655.05126953125, 411.0627746582031], [64.88946533203125, 416.5194396972656, 172.52650451660156, 462.4348449707031]], 
+"caption1_modified": "Supporters of GPE's ruling ORG party come out on DATE to celebrate their candidate's victory in the disputed PERSON presidential election", 
+"caption1_entities": [["Tanzania", "GPE"], ["Chama Cha Mapinduzi", "ORG"], ["Friday", "DATE"], ["Zanzibari", "PERSON"]], 
+"caption2_modified": "A person sits on a truck as supporters of the ruling PERSON (ORG) celebrate the victory of their candidate in the Zanzibar Presidential election on the outskirts of GPE, on DATE.", 
+"caption2_entities": [["Chama Cha Mapinduzi", "PERSON"], ["Revolutionary Party", "ORG"], ["Stone Town", "GPE"], ["October 30, 2020", "DATE"]], 
+"bert_base_score": "0.5419393", 
+"bert_large_score": "0.7292433"}
