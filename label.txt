@@ -1,9 +1,0 @@
-building;edifice
-sky
-tree
-road;route
-person;individual;someone;somebody;mortal;soul
-door;double;door
-car;auto;automobile;machine;motorcar
-fence;fencing
-pole

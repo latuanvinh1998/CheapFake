@@ -2,32 +2,52 @@ import sys
 sys.path.append('Detection')
 
 from mmdet.apis import init_detector, inference_detector, show_result_pyplot
-import cv2
+from efficientnet_pytorch import EfficientNet
+from sentence_transformers import SentenceTransformer, util
+
+from torchvision import transforms
+from torch import nn
+from PIL import Image
+from simple_tools import *
+from neurnet import *
+
+import numpy as np
+import torch
 
 config_file = 'Detection/configs/swin/mask_rcnn_swin_tiny_patch4_window7_mstrain_480-800_adamw_3x_coco.py'
-
 checkpoint_file = '../Data/mask_rcnn_swin_tiny_patch4_window7.pth'
 
-device = 'cuda:0'
+transform = transforms.Compose([transforms.Resize((300,300)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
 
-model = init_detector(config_file, checkpoint_file, device=device)
+model_det = init_detector(config_file, checkpoint_file, device='cuda:0')
+model_ef = EfficientNet.from_pretrained('efficientnet-b3').to(torch.device("cuda:0"))
+model_nlp = SentenceTransformer('stsb-mpnet-base-v2')
+nn_image = Img_Emb(1536, 256)
+nn_sentence = Caption_Emb(768, 256)
 
-# show_result_pyplot(model, 'test.jpg',  inference_detector(model, 'test.jpg'), score_thr=0.3, title='result', wait_time=0)
+result = inference_detector(model_det, 'test.jpg')
 
-result = inference_detector(model, 'test.jpg')
+img = Image.open('test.jpg')
+img_emb = []
 
-print(result[0][0])
-# bbox = []
-# for r in result[0][0]:
-# 	if r[4] > 0.5:
-# 		bbox.append(r[0:4].astype(int))	
+model_ef.eval()
 
-# img = cv2.imread('test.jpg')
+with torch.no_grad():
+	for r in result[0][2]:
+		if r[4] > 0.9:
+			bb = r[0:4].astype(int)
 
-# print(len(bbox))
+			img_crop = img.crop((bb[0], bb[1], bb[2], bb[3]))
+			img_crop.show()
+			img_crop = transform(img_crop)
+			img_crop = torch.unsqueeze(img_crop, 0)
 
-# for bb in bbox:
-# 	img = cv2.rectangle(img, (bb[0], bb[1]), (bb[2], bb[3]), (255, 0, 0), 2)
+			features = model_ef.extract_features(img_crop.to(torch.device("cuda:0")))
+			features = nn.AdaptiveAvgPool2d(1)(features)
+			features = torch.flatten(features)
+			img_emb.append(features)
 
-# cv2.imshow('img', img)
-# cv2.waitKey(0)
+sent_emb_1 = torch.flatten(torch.tensor(model_nlp.encode("Hello Darkness My Friend")))
+sent_emb_1 = nn_sentence(sent_emb_1)
+
+# sent_emb_2 = torch.tensor(model_nlp.encode("I'm facking Gay"))
