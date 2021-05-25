@@ -50,4 +50,4 @@ with torch.no_grad():
 sent_emb_1 = torch.flatten(torch.tensor(model_nlp.encode("Hello Darkness My Friend")))
 sent_emb_1 = nn_sentence(sent_emb_1)
 
-# sent_emb_2 = torch.tensor(model_nlp.encode("I'm facking Gay"))
+sent_emb_2 = torch.tensor(model_nlp.encode("I'm facking Gay"))
