@@ -6,17 +6,9 @@ import math
 
 class Neural_Net(Module):
 	def __init__(self, in_features, embedding_size):
-		super(Img_Emb, self).__init__()
+		super(Neural_Net, self).__init__()
 		self.nn = Linear(in_features, embedding_size)
 	def forward(self, img):
 		out = self.nn(img)
 		return out
 
-
-# class Caption_Emb(Module):
-# 	def __init__(self, in_features, embedding_size):
-# 		super(Caption_Emb, self).__init__()
-# 		self.nn = Linear(in_features, embedding_size)
-# 	def forward(self, caption):
-# 		out = self.nn(caption)
-# 		return out

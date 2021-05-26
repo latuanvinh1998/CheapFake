@@ -1,6 +1,9 @@
 import numpy as np
 import math
 import torch
+from torch import nn
+
+triplet_loss = nn.TripletMarginLoss(margin=1.0, p=2)
 
 def resize_bb(arr, width, height):
 
@@ -30,11 +33,11 @@ def E1(TP, TN, FP, FN):
 
 def select_triplets(anchor, positive, negative):
 	triplet = []
-	dist = np.copy(anchor.detach().cpu().numpy())
+	dist = []
 
 	for i in range(len(anchor)):
-		dist_p = torch.dist(anchor[i], positive, 2).detach().cpu().numpy()
-		dist_n = torch.dist(anchor[i], negative, 2).detach().cpu().numpy()
-		dist[i] = dist_n + dist_p
+		# dist_p = torch.dist(anchor[i], positive, 2).detach().cpu().numpy()
+		# dist_n = torch.dist(anchor[i], negative, 2).detach().cpu().numpy()
+		dist.append(triplet_loss(anchor[i], positive, negative))
 	print(dist)
 
