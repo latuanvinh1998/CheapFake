@@ -41,3 +41,12 @@ def select_triplets(anchor, positive, negative):
 		dist.append(triplet_loss(anchor[i], positive, negative))
 	print(dist)
 
+def extract(model_ef, img):
+	with torch.no_grad():
+		img = transform(img)
+		img = torch.unsqueeze(img, 0)
+		feature = model_ef.extract_features(img.to(torch.device("cuda:0")))
+		feature = nn.AdaptiveAvgPool2d(1)(feature)
+		feature = torch.squeeze(feature, -1)
+		feature = torch.squeeze(feature, -1)
+	return feature
