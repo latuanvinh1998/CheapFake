@@ -13,48 +13,48 @@ from neurnet import *
 
 import numpy as np
 import torch
+import random
 import json
 
 # config_file = 'Detection/configs/swin/mask_rcnn_swin_tiny_patch4_window7_mstrain_480-800_adamw_3x_coco.py'
 # checkpoint_file = '../Data/mask_rcnn_swin_tiny_patch4_window7.pth'
 
-batch_size = 16
+batch_size = 8
 epoch = global_step = 0
 
 transform = transforms.Compose([transforms.Resize((300,300)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
 
 # model_det = init_detector(config_file, checkpoint_file, device='cuda:0')
 model_ef = EfficientNet.from_pretrained('efficientnet-b3').to(torch.device("cuda:0"))
-model_bert = SentenceTransformer('stsb-mpnet-base-v2').to(torch.device("cuda:0"))
+model_bert = SentenceTransformer('stsb-mpnet-base-v2')
 
 nn_image = Neural_Net(1536, 256).to(torch.device("cuda:0"))
 nn_sentence = Neural_Net(768, 256).to(torch.device("cuda:0"))
 
-f = open('../Data/mmsys_anns/train_data.json')
+f = open('../Data/mmsys_anns/val_data.json')
 labels = []
 
 for line in f:
 	labels.append(json.loads(line))
 
-random.shuffle(labels)
+# random.shuffle(labels)
 length = len(labels)
 iters = int(length/batch_size)
 
-cap_1 = labels[0]['caption1_modified']
-cap_2 = labels[0]['caption2_modified']
+# cap_1 = labels[0]['caption1_modified']
+# cap_2 = labels[0]['caption2_modified']
 
-emb_sent_1 = torch.Tensor(model_bert.encode(cap_1))
-emb_sent_2 = torch.Tensor(model_bert.encode(cap_2))
+# emb_sent_1 = torch.Tensor(model_bert.encode(cap_1))
+# emb_sent_2 = torch.Tensor(model_bert.encode(cap_2))
 
-emb_sent_1 = torch.reshape(emb_sent_1,(1, -1))
-emb_sent_2 = torch.reshape(emb_sent_2,(1, -1))
+# emb_sent_1 = torch.reshape(emb_sent_1,(1, -1))
+# emb_sent_2 = torch.reshape(emb_sent_2,(1, -1))
 
-positive = nn_sentence(emb_sent_1.to(torch.device("cuda:0")))
-negative = nn_sentence(emb_sent_2.to(torch.device("cuda:0")))
+# positive = nn_sentence(emb_sent_1.to(torch.device("cuda:0")))
+# negative = nn_sentence(emb_sent_2.to(torch.device("cuda:0")))
 
-while epoch < 1000:
-	for k in range(iters):
-
+while epoch < 1:
+	for k in range(8):
 		imgs = []
 		positive = []
 		negative = []
@@ -87,6 +87,9 @@ while epoch < 1000:
 		anchor = nn_image(feature)
 		positive_anchor = nn_sentence(positive_batch.to(torch.device("cuda:0")))
 		negative_anchor = nn_sentence(negative_batch.to(torch.device("cuda:0")))
+		print(anchor.shape)
+		print(positive_anchor.shape)
+	epoch += 1
 
 
 
