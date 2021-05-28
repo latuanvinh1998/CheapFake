@@ -3,8 +3,6 @@ import math
 import torch
 from torch import nn
 
-triplet_loss = nn.TripletMarginLoss(margin=1.0, p=2)
-
 def resize_bb(arr, width, height):
 
 	size = (arr[2] - arr[0]) - (arr[3] - arr[1])
@@ -43,8 +41,6 @@ def select_triplets(anchor, positive, negative):
 
 def extract(model_ef, img):
 	with torch.no_grad():
-		img = transform(img)
-		img = torch.unsqueeze(img, 0)
 		feature = model_ef.extract_features(img.to(torch.device("cuda:0")))
 		feature = nn.AdaptiveAvgPool2d(1)(feature)
 		feature = torch.squeeze(feature, -1)

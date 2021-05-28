@@ -31,6 +31,9 @@ model_bert = SentenceTransformer('stsb-mpnet-base-v2')
 nn_image = Neural_Net(1536, 256).to(torch.device("cuda:0"))
 nn_sentence = Neural_Net(768, 256).to(torch.device("cuda:0"))
 
+optimizer = torch.optim.Adam(list(nn_image.parameters()) + list(nn_sentence.parameters()), lr=1e-3)
+triplet_loss = nn.TripletMarginLoss(margin=1.0, p=2)
+
 f = open('../Data/mmsys_anns/val_data.json')
 labels = []
 
@@ -41,20 +44,14 @@ for line in f:
 length = len(labels)
 iters = int(length/batch_size)
 
-# cap_1 = labels[0]['caption1_modified']
-# cap_2 = labels[0]['caption2_modified']
+model_ef.eval()
 
-# emb_sent_1 = torch.Tensor(model_bert.encode(cap_1))
-# emb_sent_2 = torch.Tensor(model_bert.encode(cap_2))
-
-# emb_sent_1 = torch.reshape(emb_sent_1,(1, -1))
-# emb_sent_2 = torch.reshape(emb_sent_2,(1, -1))
-
-# positive = nn_sentence(emb_sent_1.to(torch.device("cuda:0")))
-# negative = nn_sentence(emb_sent_2.to(torch.device("cuda:0")))
+nn_image.train()
+nn_sentence.train()
 
 while epoch < 1:
 	for k in range(8):
+
 		imgs = []
 		positive = []
 		negative = []
@@ -84,13 +81,17 @@ while epoch < 1:
 
 		feature = extract(model_ef, batch_img)
 
+		optimizer.zero_grad()
+
 		anchor = nn_image(feature)
 		positive_anchor = nn_sentence(positive_batch.to(torch.device("cuda:0")))
 		negative_anchor = nn_sentence(negative_batch.to(torch.device("cuda:0")))
-		print(anchor.shape)
-		print(positive_anchor.shape)
-	epoch += 1
 
+		loss = triplet_loss(anchor, positive_anchor, negative_anchor)
+		loss.backward()
+		optimizer.step()
+
+	epoch += 1
 
 
 
