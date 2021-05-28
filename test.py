@@ -9,6 +9,7 @@ from simple_tools import *
 import pandas as pd
 import json
 import torch
+import difflib
 from PIL import Image
 from sentence_transformers import SentenceTransformer, util
 import random
@@ -32,27 +33,35 @@ length = len(labels)
 # positive = []
 # negative = []
 
-for i in range(8):
+for i in range(100):
 
 	# path = '../Data/' +  labels[i]['img_local_path']
 	# img = Image.open(path)
 	# img = transform(img)
 	# imgs.append(img)
 
-	r_0 = random.randint(0, len(labels[i]["articles"]) - 1)
-	cap_1 = labels[i]["articles"][r_0]['caption_modified']
+	# r_0 = random.randint(0, len(labels[i]["articles"]) - 1)
+	cap_1 = labels[i]["articles"][0]['caption_modified'].replace('\n','')
 
 	if len(labels[i]["articles"]) > 1 and random.randint(0, 1) ==0:
-		print(len(labels[i]["articles"]))
-		r = random.choice([k for k in range(0, len(labels[i]["articles"]) - 1) if k not in [r_0]])
-		cap_2 = labels[i]["articles"][r]['caption_modified']
+		for j in range(len(labels[i]["articles"])):
+			if j != len(labels[i]["articles"]) - 1:
+				cap_2 = labels[i]["articles"][j + 1]['caption_modified'].replace('\n','')
+				if difflib.SequenceMatcher(None, cap_1, cap_2).ratio() < 0.5:
+					print(i, "Positive")
+					break
 
-		print("i: ", i, " r: ", r_0, " r_1: ", r)
+			else:
+				r = random.choice([k for k in range(0,length) if k not in [i]])
+				cap_2 = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified'].replace('\n','')
+				print(i, "Negative: ")
+		print("Cap 1: ", cap_1)
+		print("Cap 2: ", cap_2, "\n")
 
 	else:
 		r = random.choice([k for k in range(0,length) if k not in [i]])
-		cap_2 = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified']
-		print("i: ", i, " r: ", r,  " r_1: ", r)
+		cap_2 = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified'].replace('\n','')
+
 
 # 	pos_emb = torch.Tensor(model_bert.encode(cap_pos))
 # 	neg_emb = torch.Tensor(model_bert.encode(cap_neg))
