@@ -7,20 +7,24 @@ from sentence_transformers import SentenceTransformer, util
 
 from torchvision import transforms
 from torch import nn
+from torch import optim
 from PIL import Image
 from simple_tools import *
 from neurnet import *
 
 import numpy as np
 import torch
-import random
 import json
+import os
 
 # config_file = 'Detection/configs/swin/mask_rcnn_swin_tiny_patch4_window7_mstrain_480-800_adamw_3x_coco.py'
 # checkpoint_file = '../Data/mask_rcnn_swin_tiny_patch4_window7.pth'
 
 batch_size = 8
 epoch = global_step = 0
+pre_val = 1
+
+os.makedirs("Model/", exist_ok=True)
 
 transform = transforms.Compose([transforms.Resize((300,300)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
 
@@ -30,60 +34,91 @@ model_bert = SentenceTransformer('stsb-mpnet-base-v2')
 
 neural = Neural_Net_Cosine(1536, 768, 512).to(torch.device("cuda:0"))
 
+optimizer = optim.Adam(neural.parameters(), lr=1e-3, weight_decay=4e-5)
 cosine_loss = torch.nn.CosineEmbeddingLoss(margin=0.2)
 
-f = open('../Data/mmsys_anns/val_data.json')
+f_train = open('../Data/mmsys_anns/train_data.json')
 labels = []
 
-for line in f:
+f_val = open('../Data/mmsys_anns/val_data.json')
+validation = []
+
+for line in f_train:
 	labels.append(json.loads(line))
 
-# random.shuffle(labels)
+for line in f_val:
+	validation.append(json.loads(line))
+
 length = len(labels)
 iters = int(length/batch_size)
 
 model_ef.eval()
+neural.train()
 
-while epoch < 1:
-	for k in range(8):
+while epoch < 500:
+
+	random.shuffle(labels)
+
+	for k in range(iters):
 
 		imgs = []
-		positive = []
-		negative = []
-
-		y = -torch.ones(8).to(torch.device("cuda:0"))
+		sent_1 = []
+		sent_2 = []
+		y = []
 
 		for i in range(batch_size):
 
-			idx = 8*k + i
-
-			path = '../Data/' +  labels[idx]['img_local_path']
+			idx = batch_size*k + i
+			
+			path = '../Data/' +  labels[i]['img_local_path']
 			img = Image.open(path)
 			img = transform(img)
 			imgs.append(img)
 
-			r = random.choice([j for j in range(0,length) if j not in [idx]])
-			cap_pos = labels[idx]["articles"][random.randint(0, len(labels[idx]["articles"]) - 1)]['caption_modified']
-			cap_neg = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified']
+			cap_1, cap_2, y_ = get_pair_cap(idx, length, labels, i)
+			y.append(y_)
 
-			pos_emb = torch.Tensor(model_bert.encode(cap_pos))
-			neg_emb = torch.Tensor(model_bert.encode(cap_neg))
+			emb_1 = torch.Tensor(model_bert.encode(cap_1))
+			emb_2 = torch.Tensor(model_bert.encode(cap_2))
 
-			positive.append(pos_emb)
-			negative.append(neg_emb)
+			sent_1.append(emb_1)
+			sent_2.append(emb_2)
 
-		batch_img = torch.stack([img for img in imgs])
-		positive_batch = torch.stack([emb for emb in positive])
-		negative_batch = torch.stack([emb for emb in negative])
+		features, emb_batch_1, emb_batch_2 = get_emb_batch(model_ef, imgs, sent_1, sent_2)
 
-		feature = extract(model_ef, batch_img)
+		y = torch.Tensor(y).to(torch.device("cuda:0"))
 
+		optimizer.zero_grad()
 
-		x_1 = neural(feature, positive_batch.to(torch.device("cuda:0")))
-		x_2 = neural(feature, negative_batch.to(torch.device("cuda:0")))
+		x_1 = neural(features, emb_batch_1.to(torch.device("cuda:0")))
+		x_2 = neural(features, emb_batch_2.to(torch.device("cuda:0")))
 
 		loss = cosine_loss(x_1, x_2, y)
-		print(loss)
+		loss.backward()
+		optimizer.step()
+
+		global_step += 1
+
+		if global_step % 100 == 0:
+			print("Epoch: %d === Global Step: %d === Loss: %.3f" %(epoch, global_step, loss))
+
+		if global_step % 1000 == 0:
+			print("Validation.......")
+			val = validation_loss(model_bert, model_ef, neural, validation, cosine_loss)
+
+			if val < pre_val:
+
+				torch.save(neural.state_dict(), 'Model/model_{}.pth'.format(epoch))
+				torch.save(optimizer.state_dict(), 'Model/optimizer_{}.pth'.format(epoch))
+
+				txt = open('Model/stat_{}.txt'.format(epoch), 'w')
+				txt.write('Loss: %.3f \n'%(loss))
+				txt.write('Validation: %.3f'%(val))
+				txt.close()
+
+				pre_val = val
+
+			print("Epoch: %d === Global Step: %d === Validation Loss: %.3f" %(epoch, global_step, val))
 
 	epoch += 1
 

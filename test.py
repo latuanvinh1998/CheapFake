@@ -5,95 +5,94 @@ from torchvision import transforms
 from efficientnet_pytorch import EfficientNet
 from neurnet import *
 from simple_tools import *
+from torch import optim
+from PIL import Image
 
 import pandas as pd
 import json
 import torch
-import difflib
-from PIL import Image
-from sentence_transformers import SentenceTransformer, util
-import random
 
-f = open('../Data/mmsys_anns/val_data.json')
+f = open('../Data/mmsys_anns/train_data.json')
 labels = []
+
+f_val = open('../Data/mmsys_anns/val_data.json')
+validation = []
 
 for line in f:
 	labels.append(json.loads(line))
 
+for line in f_val:
+	validation.append(json.loads(line))
+
 length = len(labels)
 
-# transform = transforms.Compose([transforms.Resize((300,300)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
+transform = transforms.Compose([transforms.Resize((300,300)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
 
-# model_ef = EfficientNet.from_pretrained('efficientnet-b3').to(torch.device("cuda:0"))
-# model_bert = SentenceTransformer('stsb-mpnet-base-v2').to(torch.device("cuda:0"))
-# neural = Neural_Net_Cosine(1536, 768, 512).to(torch.device("cuda:0"))
+model_ef = EfficientNet.from_pretrained('efficientnet-b3').to(torch.device("cuda:0"))
+model_bert = SentenceTransformer('stsb-mpnet-base-v2').to(torch.device("cuda:0"))
+neural = Neural_Net_Cosine(1536, 768, 512).to(torch.device("cuda:0"))
 
-# # random.shuffle(labels)
-# imgs = []
-# positive = []
-# negative = []
+optimizer = optim.Adam(neural.parameters(), lr=1e-3)
+cosine_loss = torch.nn.CosineEmbeddingLoss(margin=0.2)
 
-for i in range(100):
+# random.shuffle(labels)
 
-	# path = '../Data/' +  labels[i]['img_local_path']
-	# img = Image.open(path)
-	# img = transform(img)
-	# imgs.append(img)
+model_ef.eval()
+neural.train()
 
-	# r_0 = random.randint(0, len(labels[i]["articles"]) - 1)
-	cap_1 = labels[i]["articles"][0]['caption_modified'].replace('\n','')
+# validation_loss(model_bert, model_ef, neural, validation, cosine_loss)
 
-	if len(labels[i]["articles"]) > 1 and random.randint(0, 1) ==0:
-		for j in range(len(labels[i]["articles"])):
-			if j != len(labels[i]["articles"]) - 1:
-				cap_2 = labels[i]["articles"][j + 1]['caption_modified'].replace('\n','')
-				if difflib.SequenceMatcher(None, cap_1, cap_2).ratio() < 0.5:
-					print(i, "Positive")
-					break
+# for i in range(1):
+# 	# path = '../Data/' +  validation[i]['img_local_path']
+# 	# print(path)
+# 	sent_1 = []
+# 	sent_2 = []
+# 	y = []
+# 	for j in range(8):
+# 		idx = 8*i + j
+# 		cap_1, cap_2, y_ = get_pair_cap(idx, length, labels, j)
+# 		y.append(y_)
 
-			else:
-				r = random.choice([k for k in range(0,length) if k not in [i]])
-				cap_2 = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified'].replace('\n','')
-				print(i, "Negative: ")
-		print("Cap 1: ", cap_1)
-		print("Cap 2: ", cap_2, "\n")
+# 		print("idx: ", idx)
+# 		print(cap_1)
+# 		print(cap_2)
+# 	y = torch.Tensor(y).to(torch.device("cuda:0"))
+# 	print(y)
 
-	else:
-		r = random.choice([k for k in range(0,length) if k not in [i]])
-		cap_2 = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified'].replace('\n','')
+for i in range(1):
 
+	imgs = []
+	sent_1 = []
+	sent_2 = []
+	y = []
+	for l in range(8):
 
-# 	pos_emb = torch.Tensor(model_bert.encode(cap_pos))
-# 	neg_emb = torch.Tensor(model_bert.encode(cap_neg))
+		idx = 8*i + l
+		path = '../Data/' +  labels[i]['img_local_path']
+		img = Image.open(path)
+		img = transform(img)
+		imgs.append(img)
 
-# 	positive.append(pos_emb)
-# 	negative.append(neg_emb)
+		cap_1, cap_2, y_ = get_pair_cap(idx, length, labels, l)
+		y.append(y_)
 
-# batch_img = torch.stack([img for img in imgs])
-# positive_batch = torch.stack([emb for emb in positive])
-# negative_batch = torch.stack([emb for emb in negative])
+		emb_1 = torch.Tensor(model_bert.encode(cap_1))
+		emb_2 = torch.Tensor(model_bert.encode(cap_2))
 
-# feature = extract(model_ef, batch_img)
+		sent_1.append(emb_1)
+		sent_2.append(emb_2)
 
-# x1 = neural(feature, positive_batch.to(torch.device("cuda:0")))
-# x2 = neural(feature, negative_batch.to(torch.device("cuda:0")))
+	features, emb_batch_1, emb_batch_2 = get_emb_batch(model_ef, imgs, sent_1, sent_2)
+	y = torch.Tensor(y).to(torch.device("cuda:0"))
 
-# positive_batch = torch.stack([emb for emb in positive])
-# print(nn_sentence(positive_batch.to(torch.device("cuda:0"))).shape)
+	# optimizer.zero_grad()
 
-# x1 = torch.Tensor([[-2.3202,  0.9460, -0.8085, -0.7788],
-#         [ 0.4801, -0.7071,  3.2686, -0.1520],
-#         [ 0.4675, -0.9504,  1.3799,  0.1181]])
+	x_1 = neural(features, emb_batch_1.to(torch.device("cuda:0")))
+	x_2 = neural(features, emb_batch_2.to(torch.device("cuda:0")))
 
-# x2 = torch.Tensor([[ 0.7834,  0.8960,  0.0652, -0.4384],
-#         [-0.7813, -0.2848, -0.9736,  0.8276],
-#         [-1.1003, -1.3273,  1.0929,  1.4579]])
+	print(x_1.shape)
 
-# lb = torch.ones(3)
-# y = torch.Tensor([1, 1, -1])
-# label = torch.stack([i for i in y])
-
-# l = torch.nn.CosineEmbeddingLoss()
-
-# print(l(x1, x2, label))
-# print(l(x1, x2, lb))
+# 	loss = cosine_loss(x_1, x_2, y)
+# 	print(loss.detach().cpu().numpy())
+	# loss.backward()
+	# optimizer.step()
