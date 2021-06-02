@@ -7,92 +7,143 @@ from neurnet import *
 from simple_tools import *
 from torch import optim
 from PIL import Image
+from scipy import spatial
 
 import pandas as pd
 import json
 import torch
 
-f = open('../Data/mmsys_anns/train_data.json')
+f = open('../Data/mmsys_anns/public_test_mmsys_final.json')
 labels = []
 
-f_val = open('../Data/mmsys_anns/val_data.json')
-validation = []
+# f_val = open('../Data/mmsys_anns/val_data.json')
+# validation = []
 
 for line in f:
 	labels.append(json.loads(line))
 
-for line in f_val:
-	validation.append(json.loads(line))
+# for line in f_val:
+# 	validation.append(json.loads(line))
 
 length = len(labels)
 
-transform = transforms.Compose([transforms.Resize((300,300)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
+transform = transforms.Compose([transforms.Resize((600,600)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
 
-model_ef = EfficientNet.from_pretrained('efficientnet-b3').to(torch.device("cuda:0"))
+model_ef = EfficientNet.from_pretrained('efficientnet-b7').to(torch.device("cuda:0"))
 model_bert = SentenceTransformer('stsb-mpnet-base-v2').to(torch.device("cuda:0"))
-neural = Neural_Net_Cosine(1536, 768, 512).to(torch.device("cuda:0"))
 
-optimizer = optim.Adam(neural.parameters(), lr=1e-3)
-cosine_loss = torch.nn.CosineEmbeddingLoss(margin=0.2)
+neural = Neural_Net_Cosine(2560, 768, 256).to(torch.device("cuda:0"))
+neural.load_state_dict(torch.load("Model/model_1.pth"))
 
-# random.shuffle(labels)
+TP = TN = FP = FN = idx = total_cos_neg = total_cos_pos = pos = neg =0
 
-model_ef.eval()
-neural.train()
+label_context = []
 
-# validation_loss(model_bert, model_ef, neural, validation, cosine_loss)
+thresholds = np.arange(0, 1, 0.01)
+cos_thresholds = np.arange(0, 1, 0.05)
 
-# for i in range(1):
-# 	# path = '../Data/' +  validation[i]['img_local_path']
-# 	# print(path)
-# 	sent_1 = []
-# 	sent_2 = []
-# 	y = []
-# 	for j in range(8):
-# 		idx = 8*i + j
-# 		cap_1, cap_2, y_ = get_pair_cap(idx, length, labels, j)
-# 		y.append(y_)
+for label in labels:
 
-# 		print("idx: ", idx)
-# 		print(cap_1)
-# 		print(cap_2)
-# 	y = torch.Tensor(y).to(torch.device("cuda:0"))
-# 	print(y)
+	emb_sent_1 = model_bert.encode(label['caption1_modified'])
+	emb_sent_2 = model_bert.encode(label['caption2_modified'])
+	cos_sim = spatial.distance.cosine(emb_sent_1, emb_sent_2)
 
-for i in range(1):
+	emb_sent_1 = torch.unsqueeze(torch.Tensor(emb_sent_1), 0)
+	emb_sent_2 = torch.unsqueeze(torch.Tensor(emb_sent_2), 0)
 
-	imgs = []
-	sent_1 = []
-	sent_2 = []
-	y = []
-	for l in range(8):
+	path = '../Data/' +  label['img_local_path']
+	path = path.replace(':', '_')
+	img = Image.open(path)
+	img = transform(img)
+	img = torch.unsqueeze(img, 0)
 
-		idx = 8*i + l
-		path = '../Data/' +  labels[i]['img_local_path']
-		img = Image.open(path)
-		img = transform(img)
-		imgs.append(img)
+	with torch.no_grad():
+		feature = model_ef.extract_features(img.to(torch.device("cuda:0")))
+		feature = nn.AdaptiveAvgPool2d(1)(feature)
+		feature = torch.squeeze(feature, -1)
+		feature = torch.squeeze(feature, -1)
 
-		cap_1, cap_2, y_ = get_pair_cap(idx, length, labels, l)
-		y.append(y_)
+		x_1 = neural(feature, emb_sent_1.to(torch.device("cuda:0")))
+		x_2 = neural(feature, emb_sent_2.to(torch.device("cuda:0")))
 
-		emb_1 = torch.Tensor(model_bert.encode(cap_1))
-		emb_2 = torch.Tensor(model_bert.encode(cap_2))
+	cos = spatial.distance.cosine(x_1.cpu().numpy(), x_2.cpu().numpy())
+	label_context.append([label['context_label'], cos, cos_sim])
 
-		sent_1.append(emb_1)
-		sent_2.append(emb_2)
 
-	features, emb_batch_1, emb_batch_2 = get_emb_batch(model_ef, imgs, sent_1, sent_2)
-	y = torch.Tensor(y).to(torch.device("cuda:0"))
+accs = []
 
-	# optimizer.zero_grad()
+for threshold in thresholds:
+	TP = TN = FP = FN = 0
 
-	x_1 = neural(features, emb_batch_1.to(torch.device("cuda:0")))
-	x_2 = neural(features, emb_batch_2.to(torch.device("cuda:0")))
+	for label, cos, cos_sim in label_context:
 
-	print(x_1.shape)
+		if cos < threshold and label == 0:
+			TN += 1
+		elif cos > threshold and label == 0:
+			FP += 1
+		elif cos > threshold and label == 1:
+			TP += 1
+		elif cos < threshold and label == 1:
+			FN += 1
 
-# 	loss = cosine_loss(x_1, x_2, y)
-# 	print(loss.detach().cpu().numpy())
-	# loss.backward()
-	# optimizer.step()
+	if TP != 0 and TN != 0 and FP != 0 and FN != 0:
+		acc, f1, mcc = E1(TP, TN, FP, FN)
+		accs.append(acc)
+print("Accuracy: ",accs[np.argmax(np.asarray(accs))])
+# if accs != []:
+# 	print("Cos threshold: ",accs[np.argmax(np.asarray(accs))])
+# for cos_threshold in cos_thresholds:
+
+# 	accs = []
+
+# 	for threshold in thresholds:
+# 		TP = TN = FP = FN = 0
+
+# 		for label, cos, cos_sim in label_context:
+
+# 			if cos_sim < cos_threshold:
+# 				if cos < threshold and label == 0:
+# 					TN += 1
+# 				elif cos > threshold and label == 0:
+# 					FP += 1
+# 				elif cos > threshold and label == 1:
+# 					TP += 1
+# 				elif cos < threshold and label == 1:
+# 					FN += 1
+# 			else:
+# 				if label == 0:
+# 					FP += 1
+# 				else:
+# 					TP += 1
+
+# 		if TP != 0 and TN != 0 and FP != 0 and FN != 0:
+# 			acc, f1, mcc = E1(TP, TN, FP, FN)
+# 			accs.append(acc)
+# 	if accs != []:
+# 		print("Cos threshold: ",cos_threshold, "\t", accs[np.argmax(np.asarray(accs))])
+# print(accs[np.argmax(np.array(accs))])
+
+# for acc in accs:
+# 	print(acc)
+
+	# if cos < 0.35 and label['context_label'] == 1:
+	# 	neg += 1
+	# elif cos > 0.4 and label['context_label'] == 0:
+	# 	pos += 1
+
+	# else:
+	# 	pred = 1
+
+# print("Not Out of context: ", total_cos_neg/neg)
+# print("Out of context: ", total_cos_pos/pos)
+	# if label['context_label'] == 0 and pred == 0:
+	# 	TN += 1
+	# elif label['context_label'] == 1 and pred == 1:
+	# 	TP += 1
+	# elif label['context_label'] == 1 and pred == 0:
+	# 	FN += 1
+	# elif label['context_label'] == 0 and pred == 1:
+	# 	FP += 1
+
+# acc, f1, mcc = E1(TP, TN, FP, FN)
+# print('Accuracy: ', acc*100, '%')

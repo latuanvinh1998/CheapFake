@@ -26,16 +26,16 @@ pre_val = 1
 
 os.makedirs("Model/", exist_ok=True)
 
-transform = transforms.Compose([transforms.Resize((300,300)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
+transform = transforms.Compose([transforms.Resize((600,600)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
 
 # model_det = init_detector(config_file, checkpoint_file, device='cuda:0')
-model_ef = EfficientNet.from_pretrained('efficientnet-b3').to(torch.device("cuda:0"))
+model_ef = EfficientNet.from_pretrained('efficientnet-b7').to(torch.device("cuda:0"))
 model_bert = SentenceTransformer('stsb-mpnet-base-v2')
 
-neural = Neural_Net_Cosine(1536, 768, 512).to(torch.device("cuda:0"))
+neural = Neural_Net_Cosine(2560, 768, 256).to(torch.device("cuda:0"))
 
 optimizer = optim.Adam(neural.parameters(), lr=1e-3, weight_decay=4e-5)
-cosine_loss = torch.nn.CosineEmbeddingLoss(margin=0.2)
+cosine_loss = torch.nn.CosineEmbeddingLoss(margin=0.3)
 
 f_train = open('../Data/mmsys_anns/train_data.json')
 labels = []

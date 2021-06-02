@@ -1,0 +1,37 @@
+Feature Fusion (concat, project)
+
+Train (GLOBAL FEATURES)
+
+Image -> gMLP -> feature vector image (FI)
+Caption 1 -> gMLP -> FC1 (in-context)
+Caption 2 -> gMLP -> FC2 (out-context)
+Caption 1’ -> gMLP -> FC1’ (in-context)
+
+FI fuse FC1 -> label (in-context) -> FI-FC1
+FI fuse FC2 -> label (out-context) -> FI-FC2
+-> TRAIN (SVM, FC 3 layers 2 dau ra) [MODEL 1] 
+
+FC1 Fuse FC2 -> label (out-context) -> FC1-FC2
+FC1’ Fuse FC1 -> label (in-context)
+-> TRAIN (SVM, FC) [MODEL 2]
+
+TESTING
+
+Image -> gMLP -> feature vector image (FI)
+Caption 1 -> gMLP -> FC1 
+Caption 2 -> gMLP -> FC2 
+
+-> FI-FC1 -=> MODEL 1 -> predicted label 1: 1
+-> FI-FC2  -=> MODEL 1-> predicted label 2:  1
+-> FC1-FC2 -=> MODEL 2 -> predicted label 3: 0
+
+If FC1-FC2 == 0 -> END
+Else if (FI-FC1 == 1) && (FI-FC2 ==0)
+
+
+GLOBAL + LOCAL
+
+Multimodal MODEL
+(FI-FC1, FI-FC2, FC1-FC2) + (embedded of objects/tokens) => Multimodal MODEL => 2 classes
+
+TARGET: > 85%

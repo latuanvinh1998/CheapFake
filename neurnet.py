@@ -13,17 +13,32 @@ class Neural_Net(Module):
 		out = self.nn(img)
 		return out
 
+# class Neural_Net_Cosine(Module):
+# 	def __init__(self, in_features_img, in_features_sent, embedding_size):
+# 		super(Neural_Net_Cosine, self).__init__()
+# 		self.nn_1 = Linear(in_features_img, 256)
+# 		self.nn_2 = Linear(in_features_sent, 256)
+# 		self.nn_last = Linear(256, embedding_size)
+
+# 	def forward(self, img, caption):
+# 		emb_1 = self.nn_1(img)
+# 		emb_2 = self.nn_2(caption)
+
+# 		out = self.nn_last(emb_1 + emb_2)
+
+# 		return out
+
 class Neural_Net_Cosine(Module):
 	def __init__(self, in_features_img, in_features_sent, embedding_size):
 		super(Neural_Net_Cosine, self).__init__()
 		self.nn_1 = Linear(in_features_img, 256)
 		self.nn_2 = Linear(in_features_sent, 256)
-		self.nn_last = Linear(256, embedding_size)
+		self.nn_last = Linear(512, embedding_size)
 
 	def forward(self, img, caption):
 		emb_1 = self.nn_1(img)
 		emb_2 = self.nn_2(caption)
-
-		out = self.nn_last(emb_1 + emb_2)
-
+		emb = torch.cat((emb_1, emb_2), 1)
+		
+		out = self.nn_last(emb)
 		return out
