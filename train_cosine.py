@@ -57,7 +57,7 @@ neural.train()
 
 while epoch < 500:
 
-	random.shuffle(labels)
+	# random.shuffle(labels)
 
 	for k in range(iters):
 
@@ -71,6 +71,7 @@ while epoch < 500:
 			idx = batch_size*k + i
 			
 			path = '../Data/' +  labels[i]['img_local_path']
+			print(path)
 			img = Image.open(path)
 			img = transform(img)
 			imgs.append(img)

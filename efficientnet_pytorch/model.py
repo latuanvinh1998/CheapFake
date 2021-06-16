@@ -313,12 +313,11 @@ class EfficientNet(nn.Module):
         # Convolution layers
         x = self.extract_features(inputs)
         # Pooling and final linear layer
-        x = self._avg_pooling(x)
         if self._global_params.include_top:
             x = x.flatten(start_dim=1)
             x = self._dropout(x)
             x = self._fc(x)
-        return nn.Softmax(dim=1)(x)
+        return x
 
     @classmethod
     def from_name(cls, model_name, in_channels=3, **override_params):
