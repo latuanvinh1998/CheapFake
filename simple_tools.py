@@ -4,6 +4,7 @@ import math
 import torch
 import random
 import difflib
+import cv2
 
 from PIL import Image
 from torchvision import transforms
@@ -36,27 +37,6 @@ def E1(TP, TN, FP, FN):
 
 	return accuracy, f1_score, mcc
 
-
-def select_triplets(anchor, positive, negative):
-	triplet = []
-	dist = []
-
-	for i in range(len(anchor)):
-		# dist_p = torch.dist(anchor[i], positive, 2).detach().cpu().numpy()
-		# dist_n = torch.dist(anchor[i], negative, 2).detach().cpu().numpy()
-		dist.append(triplet_loss(anchor[i], positive, negative))
-	print(dist)
-
-
-def extract(model_ef, img):
-	with torch.no_grad():
-		feature = model_ef.extract_features(img.to(torch.device("cuda:0")))
-		feature = nn.AdaptiveAvgPool2d(1)(feature)
-		feature = torch.squeeze(feature, -1)
-		feature = torch.squeeze(feature, -1)
-	return feature
-
-
 def get_pair_cap(idx, length, labels, i):
 
 	cap_1 = labels[idx]["articles"][0]['caption_modified'].replace('\n','')
@@ -78,6 +58,45 @@ def get_pair_cap(idx, length, labels, i):
 		r = random.choice([k for k in range(0,length) if k not in [idx]])
 		cap_2 = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified'].replace('\n','')
 		return cap_1, cap_2, -1
+
+def get_pair(idx, length, labels):
+
+	cap_1 = labels[idx]["articles"][0]['caption_modified'].replace('\n','')
+	r = random.choice([k for k in range(0,length) if k not in [idx]])
+	cap_2 = labels[r]["articles"][random.randint(0, len(labels[r]["articles"]) - 1)]['caption_modified'].replace('\n','')
+	return cap_1, cap_2
+
+def get_bb(path, predictor):
+
+	im = cv2.imread(path)
+	outputs = predictor(im)
+	arr = outputs["instances"].pred_boxes.tensor.cpu().numpy().astype(np.int64)
+	
+	for i in range(len(arr)):
+		img_ = im[arr[i][1]:arr[i][3], arr[i][0]:arr[i][2]]
+		cv2.imwrite('Img/' + str(i) + '.jpg', img_)
+	return len(arr)
+
+def choose_bb(emb_cap, model, transform, len_bb):
+
+	arr = []
+	emb = []
+	model.eval()
+	for i in range(len_bb):
+		img = transform(Image.open('Img/' + str(i) + '.jpg')).unsqueeze(0)
+
+		with torch.no_grad():
+			emb_img = model(img).cpu().numpy()
+		dot = np.transpose(emb_img) * emb_cap
+		arr.append(dot)
+		emb.append(emb_img)
+
+	print(emb)
+	idx = np.argmax(np.array(arr))
+	print(idx)
+	return emb[idx]
+
+
 
 
 def get_emb_batch(model_ef, imgs, sent_1, sent_2):
