@@ -2,7 +2,7 @@ import sys
 sys.path.append('Detection')
 
 # from mmdet.apis import init_detector, inference_detector, show_result_pyplot
-from efficientnet_pytorch import EfficientNet
+import clip
 from sentence_transformers import SentenceTransformer, util
 
 from torchvision import transforms
@@ -21,21 +21,22 @@ import os
 # checkpoint_file = '../Data/mask_rcnn_swin_tiny_patch4_window7.pth'
 
 batch_size = 8
-epoch = global_step = 0
-pre_val = 1
+epoch = 1
+global_step = Accumulate_Loss = 0
+pre_val = 0.099
 
 os.makedirs("Model/", exist_ok=True)
 
-transform = transforms.Compose([transforms.Resize((600,600)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),])
 
 # model_det = init_detector(config_file, checkpoint_file, device='cuda:0')
-model_ef = EfficientNet.from_pretrained('efficientnet-b7').to(torch.device("cuda:0"))
-model_bert = SentenceTransformer('stsb-mpnet-base-v2')
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model_clip, preprocess = clip.load("ViT-B/32", device=device)
+model_bert = SentenceTransformer('paraphrase-mpnet-base-v2')
 
-neural = Neural_Net_Cosine(2560, 768, 256).to(torch.device("cuda:0"))
+neural = Neural_Net_Cosine(512, 768, 512).to(torch.device("cuda:0"))
 
 optimizer = optim.Adam(neural.parameters(), lr=1e-3, weight_decay=4e-5)
-cosine_loss = torch.nn.CosineEmbeddingLoss(margin=0.3)
+cosine_loss = torch.nn.CosineEmbeddingLoss(margin=0.35)
 
 f_train = open('../Data/mmsys_anns/train_data.json')
 labels = []
@@ -52,12 +53,12 @@ for line in f_val:
 length = len(labels)
 iters = int(length/batch_size)
 
-model_ef.eval()
+model_clip.eval()
 neural.train()
 
 while epoch < 500:
 
-	# random.shuffle(labels)
+	random.shuffle(labels)
 
 	for k in range(iters):
 
@@ -70,10 +71,8 @@ while epoch < 500:
 
 			idx = batch_size*k + i
 			
-			path = '../Data/' +  labels[i]['img_local_path']
-			print(path)
-			img = Image.open(path)
-			img = transform(img)
+			path = '../Data/' +  labels[idx]['img_local_path']
+			img = preprocess(Image.open(path))
 			imgs.append(img)
 
 			cap_1, cap_2, y_ = get_pair_cap(idx, length, labels, i)
@@ -85,7 +84,7 @@ while epoch < 500:
 			sent_1.append(emb_1)
 			sent_2.append(emb_2)
 
-		features, emb_batch_1, emb_batch_2 = get_emb_batch(model_ef, imgs, sent_1, sent_2)
+		features, emb_batch_1, emb_batch_2 = get_emb_batch(model_clip, imgs, sent_1, sent_2)
 
 		y = torch.Tensor(y).to(torch.device("cuda:0"))
 
@@ -100,12 +99,16 @@ while epoch < 500:
 
 		global_step += 1
 
+		Accumulate_Loss += loss.item()
+
 		if global_step % 100 == 0:
-			print("Epoch: %d === Global Step: %d === Loss: %.3f" %(epoch, global_step, loss))
+			a_loss = Accumulate_Loss/100
+			print("Epoch: %d === Global Step: %d === Loss: %.3f" %(epoch, global_step, a_loss))
+			Accumulate_Loss = 0
 
 		if global_step % 1000 == 0:
 			print("Validation.......")
-			val = validation_loss(model_bert, model_ef, neural, validation, cosine_loss)
+			val = validation_loss(model_bert, model_clip, neural, validation, cosine_loss, preprocess)
 
 			if val < pre_val:
 
@@ -113,7 +116,7 @@ while epoch < 500:
 				torch.save(optimizer.state_dict(), 'Model/optimizer_{}.pth'.format(epoch))
 
 				txt = open('Model/stat_{}.txt'.format(epoch), 'w')
-				txt.write('Loss: %.3f \n'%(loss))
+				txt.write('Loss: %.3f \n'%(a_loss))
 				txt.write('Validation: %.3f'%(val))
 				txt.close()
 

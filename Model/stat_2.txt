@@ -1,2 +1,0 @@
-Loss: 0.163 
-Validation: 0.144
