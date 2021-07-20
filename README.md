@@ -10,13 +10,13 @@
 
 ##### For Training, please run:
 ```bash
-python train_xxx.py
+python Training_Method/train_xxx.py
 ```
 
 
 ##### For Evaluate, please run:
 ```bash
-python eval_xxx.py
+python Training_Method/eval_xxx.py
 ```
 
 Replace xxx with: "cosine" for Cosine Similarity Method, "triplet" for Euclidean Distance method and "classify" for Classifier method.
