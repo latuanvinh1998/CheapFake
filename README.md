@@ -19,4 +19,4 @@ python train_xxx.py
 python eval_xxx.py
 ```
 
-Replace xxx with: cosine for Cosine Similarity Method, triplet for Euclidean Distance method and classify for Classifier method.
+Replace xxx with: "cosine" for Cosine Similarity Method, "triplet" for Euclidean Distance method and "classify" for Classifier method.
