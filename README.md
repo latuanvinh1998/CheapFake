@@ -20,3 +20,8 @@ python Training_Method/eval_xxx.py
 ```
 
 Replace xxx with: "cosine" for Cosine Similarity Method, "triplet" for Euclidean Distance method and "classify" for Classifier method.
+
+### Source in Docker: 'MMSys/', run command in Docker: 
+```bash
+python ./source_code/test.py
+```
